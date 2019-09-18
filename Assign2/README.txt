@@ -5,3 +5,6 @@ Steps to run.
 2. make
 3. ./assign21 [high-pass image] [low-pass image]
    ./assign22 [high-pass image] [low-pass image]
+
+
+I use Butterworth as the high-pass function, and I use gaussian smooth as the low-pass function. And the output images have been pushed in the source file.
