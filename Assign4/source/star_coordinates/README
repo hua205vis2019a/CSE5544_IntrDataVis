@@ -1,0 +1,5 @@
+cmake .
+make
+./assign4_star star_coordinate_new.csv
+
+I take 5 features as the star coordinates. Gender(M[-10],F[10]), Age_TBI(Age number), Duration(Months), WarRelated_flag(Y[10], others[-10]), symptom_numbers.
