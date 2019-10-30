@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.14)
+project(assign4_time)
+find_package(VTK REQUIRED)
+include(${VTK_USE_FILE})
+set(CMAKE_CXX_STANDARD 14)
+add_executable(assign4_time main.cpp)
+target_link_libraries(assign4_time ${VTK_LIBRARIES})
