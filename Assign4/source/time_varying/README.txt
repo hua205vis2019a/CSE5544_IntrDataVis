@@ -1,3 +1,3 @@
 cmake .
 make
-./assign4_time lines.vtk 
+./assign4_time line.vtk size.csv
