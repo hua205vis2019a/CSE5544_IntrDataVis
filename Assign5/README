@@ -1,1 +1,4 @@
-
+cmake .
+make
+./Isosurface5544 [vtk file]
+./Isosurface5544.app/Contents/MacOS/Isosurface5544 [vtk file](In my MacOS, it is in this directory)
