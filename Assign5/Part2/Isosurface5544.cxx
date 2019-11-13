@@ -43,18 +43,11 @@ public:
   {
     vtkSliderWidget *sliderWidget = reinterpret_cast<vtkSliderWidget*>(caller);
     double value = static_cast<vtkSliderRepresentation *>(sliderWidget->GetRepresentation())->GetValue();
-    /*
-    Fill this part
-    */
     double color[3];
     this->func->GetColor(value, color);
     this->actor->GetProperty()->SetDiffuseColor(color);
     this->source->SetValue(0, value);
-    std::cout << "Current iso value: "<< value << std::endl;
   }
-  /*
-    Fill this part
-  */
   vtkContourFilter *source;
   vtkActor *actor;
   vtkColorTransferFunction *func;
@@ -68,9 +61,10 @@ public:
     virtual void Execute(vtkObject *caller, unsigned long, void*){
         vtkSliderWidget *sliderWidget = reinterpret_cast<vtkSliderWidget*>(caller);
         double value = static_cast<vtkSliderRepresentation2D*>(sliderWidget->GetRepresentation())->GetValue();
-        this->plane->SetOrigin(value, 0, 0);
+        this->source->SetValue(value);
+        this->source->Update();
     }
-    vtkPlane *plane;
+    vtkClipPolyData *source;
 };
 
 class SliderCallbackY: public vtkCommand {
@@ -81,9 +75,10 @@ public:
     virtual void Execute(vtkObject *caller, unsigned long, void*){
         vtkSliderWidget *sliderWidget = reinterpret_cast<vtkSliderWidget*>(caller);
         double value = static_cast<vtkSliderRepresentation2D*>(sliderWidget->GetRepresentation())->GetValue();
-        this->plane->SetOrigin(0, value, 0);
+        this->source->SetValue(value);
+        this->source->Update();
     }
-    vtkPlane *plane;
+    vtkClipPolyData *source;
 };
 
 class SliderCallbackZ: public vtkCommand {
@@ -94,9 +89,10 @@ public:
     virtual void Execute(vtkObject *caller, unsigned long, void*){
         vtkSliderWidget *sliderWidget = reinterpret_cast<vtkSliderWidget*>(caller);
         double value = static_cast<vtkSliderRepresentation2D*>(sliderWidget->GetRepresentation())->GetValue();
-        this->plane->SetOrigin(0, value, 0);
+        this->source->SetValue(value);
+        this->source->Update();
     }
-    vtkPlane *plane;
+    vtkClipPolyData *source;
 };
 
 int main (int argc, char *argv[])
@@ -112,8 +108,6 @@ int main (int argc, char *argv[])
     reader->SetFileName(inputFilename.c_str());
     reader->Update();
 
-    //----------------------ISOSURFACE--------------------------------
-
     vtkSmartPointer<vtkNamedColors> colors = vtkSmartPointer<vtkNamedColors>::New();
 
     // Create the RenderWindow, Renderer
@@ -127,50 +121,58 @@ int main (int argc, char *argv[])
     range = reader->GetOutput()->GetScalarRange();
 
     vtkSmartPointer<vtkContourFilter> iso = vtkSmartPointer<vtkContourFilter>::New();
-    /*
-    Fill this part
-    */
+
     iso->SetValue(0, (range[0]+range[1])/2);
     iso->SetInputConnection(reader->GetOutputPort());
 
     vtkSmartPointer<vtkColorTransferFunction> colorTransferFunction = vtkSmartPointer<vtkColorTransferFunction>::New();
-    /*
-    Fill this part
-    */
+
     colorTransferFunction->AddRGBPoint(range[0], 1, 0, 0);
     colorTransferFunction->AddRGBPoint((range[0]+range[1])/2, 0, 1, 0);
 
+    auto planeX = vtkSmartPointer<vtkPlane>::New();
+    planeX->SetOrigin(0.0, 0.0, 0.0);
+    planeX->SetNormal(1.0, 0.0, 0.0);
+
+    auto clipperX = vtkSmartPointer<vtkClipPolyData>::New();
+    clipperX->SetInputConnection(iso->GetOutputPort());
+    clipperX->SetClipFunction(planeX);
+    clipperX->Update();
+
+    auto planeY = vtkSmartPointer<vtkPlane>::New();
+    planeY->SetOrigin(0.0, 0.0, 0.0);
+    planeY->SetNormal(0.0, 1.0, 0.0);
+
+    auto clipperY = vtkSmartPointer<vtkClipPolyData>::New();
+    clipperY->SetInputConnection(clipperX->GetOutputPort());
+    clipperY->SetClipFunction(planeY);
+    clipperY->Update();
+
+    auto planeZ = vtkSmartPointer<vtkPlane>::New();
+    planeZ->SetOrigin(0.0, 0.0, 0.0);
+    planeZ->SetNormal(0.0, 0.0, 1.0);
+
+    auto clipperZ = vtkSmartPointer<vtkClipPolyData>::New();
+    clipperZ->SetInputConnection(clipperY->GetOutputPort());
+    clipperZ->SetClipFunction(planeZ);
+    clipperZ->Update();
+
     vtkSmartPointer<vtkPolyDataMapper> isoMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    /*
-    Fill this part
-    */
-    isoMapper->SetInputConnection(iso->GetOutputPort());
-    isoMapper->ScalarVisibilityOff();
+    isoMapper->SetInputConnection(clipperZ->GetOutputPort());
+    isoMapper->SetLookupTable(colorTransferFunction);
+    isoMapper->SetScalarModeToUsePointData();
+    isoMapper->SetColorModeToMapScalars();
 
     vtkSmartPointer<vtkActor> isoActor = vtkSmartPointer<vtkActor>::New();
-    /*
-    Fill this part
-    */
     isoActor->SetMapper(isoMapper);
-    isoActor->GetProperty()->SetOpacity(.5);
 
     auto scalarBar = vtkSmartPointer<vtkScalarBarActor>::New();
     scalarBar->SetLookupTable(isoMapper->GetLookupTable());
     scalarBar->SetTitle("Isovalues");
     scalarBar->SetLabelFormat("%3.0f");
     scalarBar->SetNumberOfLabels(6);
+    scalarBar->SetLookupTable(colorTransferFunction);
 
-    vtkSmartPointer<vtkLookupTable> hueLut = vtkSmartPointer<vtkLookupTable>::New();
-    hueLut->SetTableRange (range[0], range[1]);
-    hueLut->SetHueRange (0, 1);
-    hueLut->SetSaturationRange (1, 0.5);
-    hueLut->SetValueRange (1, 0.5);
-    hueLut->Build();
-
-    isoMapper->SetLookupTable(hueLut);
-    scalarBar->SetLookupTable(hueLut);
-
-    //----------------isosurface Slider Start----------------
     vtkSmartPointer<vtkSliderRepresentation2D> sliderRep = vtkSmartPointer<vtkSliderRepresentation2D>::New();
     sliderRep->SetMinimumValue(range[0]);
     sliderRep->SetMaximumValue(range[1]);
@@ -178,9 +180,6 @@ int main (int argc, char *argv[])
     sliderRep->SetLabelFormat("%3.0f");
     sliderRep->SetTitleText("Isosurface Value");
 
-    /*
-    Fill this part (setting sliderRep properties)
-    */
     sliderRep->SetRenderer(ren1);
     sliderRep->GetPoint1Coordinate()->SetValue(0.05, 0.7);
     sliderRep->GetPoint1Coordinate()->SetCoordinateSystemToNormalizedViewport();
@@ -208,76 +207,11 @@ int main (int argc, char *argv[])
     sliderWidget->EnabledOn();
 
     vtkSmartPointer<vtkSliderCallback> callback = vtkSmartPointer<vtkSliderCallback>::New();
-    /*
-    Fill this part
-    */
     callback->actor = isoActor;
     callback->func = colorTransferFunction;
     callback->source = iso;
-
     sliderWidget->AddObserver(vtkCommand::InteractionEvent,callback);
-    //----------------Slider End----------------
-    //----------------Isosurface End-------------
 
-    //-----------------CLIPPING-------------------
-    //--------------X------------
-    auto planeX = vtkSmartPointer<vtkPlane>::New();
-    planeX->SetNormal(1.0, 0, 0);
-
-    auto clipperX = vtkSmartPointer<vtkClipPolyData>::New();
-    clipperX->SetInputConnection(iso->GetOutputPort());
-    clipperX->SetClipFunction(planeX);
-    clipperX->SetValue(0);
-    clipperX->Update();
-
-    auto clipMapperX = vtkSmartPointer<vtkDataSetMapper>::New();
-    clipMapperX->SetInputData(clipperX->GetOutput());
-
-    auto clipActorX = vtkSmartPointer<vtkActor>::New();
-    clipActorX->SetMapper(clipMapperX);
-    clipActorX->GetProperty()->SetInterpolationToFlat();
-    clipActorX->GetProperty()->SetDiffuseColor(colors->GetColor3d("SlateGray").GetData());
-    clipActorX->GetProperty()->EdgeVisibilityOn();
-
-    //--------------Y-------------
-    auto planeY = vtkSmartPointer<vtkPlane>::New();
-    planeY->SetNormal(0, 1.0, 0);
-
-    auto clipperY = vtkSmartPointer<vtkClipPolyData>::New();
-    clipperY->SetInputConnection(clipperX->GetOutputPort());
-    clipperY->SetClipFunction(planeY);
-    clipperY->SetValue(0);
-    clipperY->Update();
-
-    auto clipMapperY = vtkSmartPointer<vtkDataSetMapper>::New();
-    clipMapperY->SetInputData(clipperY->GetOutput());
-
-    auto clipActorY = vtkSmartPointer<vtkActor>::New();
-    clipActorY->SetMapper(clipMapperY);
-    clipActorY->GetProperty()->SetInterpolationToFlat();
-    clipActorY->GetProperty()->SetDiffuseColor(colors->GetColor3d("SlateGray").GetData());
-    clipActorY->GetProperty()->EdgeVisibilityOn();
-
-    //----------z-----------
-    auto planeZ = vtkSmartPointer<vtkPlane>::New();
-    planeZ->SetNormal(0, 0, 1.0);
-
-    auto clipperZ = vtkSmartPointer<vtkClipPolyData>::New();
-    clipperZ->SetInputConnection(clipperY->GetOutputPort());
-    clipperZ->SetClipFunction(planeZ);
-    clipperZ->SetValue(0);
-    clipperZ->Update();
-
-    auto clipMapperZ = vtkSmartPointer<vtkDataSetMapper>::New();
-    clipMapperZ->SetInputData(clipperZ->GetOutput());
-
-    auto clipActorZ = vtkSmartPointer<vtkActor>::New();
-    clipActorZ->SetMapper(clipMapperZ);
-    clipActorZ->GetProperty()->SetInterpolationToFlat();
-    clipActorZ->GetProperty()->SetDiffuseColor(colors->GetColor3d("SlateGray").GetData());
-    clipActorZ->GetProperty()->EdgeVisibilityOn();
-
-    //---------------XSLIDER--------------
     vtkSmartPointer<vtkSliderRepresentation2D> sliderRepX = vtkSmartPointer<vtkSliderRepresentation2D>::New();
     sliderRepX->SetMinimumValue(0);
     sliderRepX->SetMaximumValue(200);
@@ -285,15 +219,11 @@ int main (int argc, char *argv[])
     sliderRepX->SetLabelFormat("%3.0f");
     sliderRepX->SetTitleText("X");
 
-    /*
-    Fill this part (setting sliderRep properties)
-    */
     sliderRepX->SetRenderer(ren1);
     sliderRepX->GetPoint1Coordinate()->SetValue(0.05, 0.5);
     sliderRepX->GetPoint1Coordinate()->SetCoordinateSystemToNormalizedViewport();
     sliderRepX->GetPoint2Coordinate()->SetValue(0.3, 0.5);
     sliderRepX->GetPoint2Coordinate()->SetCoordinateSystemToNormalizedViewport();
-
 
     sliderRepX->SetTubeWidth(tubeWidth);
     sliderRepX->SetSliderLength(sliderLength);
@@ -311,26 +241,21 @@ int main (int argc, char *argv[])
     sliderWidgetX->EnabledOn();
 
     vtkSmartPointer<SliderCallbackX> callbackX = vtkSmartPointer<SliderCallbackX>::New();
-    callbackX->plane = planeX;
+    callbackX->source = clipperX;
     sliderWidgetX->AddObserver(vtkCommand::InteractionEvent,callbackX);
 
-    //---------------ySLIDER--------------
     vtkSmartPointer<vtkSliderRepresentation2D> sliderRepY = vtkSmartPointer<vtkSliderRepresentation2D>::New();
     sliderRepY->SetMinimumValue(0);
-    sliderRepY->SetMaximumValue(200);
+    sliderRepY->SetMaximumValue(300);
     sliderRepY->SetValue(0);
     sliderRepY->SetLabelFormat("%3.0f");
     sliderRepY->SetTitleText("Y");
 
-    /*
-    Fill this part (setting sliderRep properties)
-    */
     sliderRepY->SetRenderer(ren1);
     sliderRepY->GetPoint1Coordinate()->SetValue(0.05, 0.3);
     sliderRepY->GetPoint1Coordinate()->SetCoordinateSystemToNormalizedViewport();
     sliderRepY->GetPoint2Coordinate()->SetValue(0.3, 0.3);
     sliderRepY->GetPoint2Coordinate()->SetCoordinateSystemToNormalizedViewport();
-
 
     sliderRepY->SetTubeWidth(tubeWidth);
     sliderRepY->SetSliderLength(sliderLength);
@@ -348,26 +273,21 @@ int main (int argc, char *argv[])
     sliderWidgetY->EnabledOn();
 
     vtkSmartPointer<SliderCallbackY> callbackY = vtkSmartPointer<SliderCallbackY>::New();
-    callbackY->plane = planeY;
+    callbackY->source = clipperY;
     sliderWidgetY->AddObserver(vtkCommand::InteractionEvent,callbackY);
 
-    //---------------XSLIDER--------------
     vtkSmartPointer<vtkSliderRepresentation2D> sliderRepZ = vtkSmartPointer<vtkSliderRepresentation2D>::New();
     sliderRepZ->SetMinimumValue(0);
-    sliderRepZ->SetMaximumValue(200);
+    sliderRepZ->SetMaximumValue(500);
     sliderRepZ->SetValue(0);
     sliderRepZ->SetLabelFormat("%3.0f");
     sliderRepZ->SetTitleText("Z");
 
-    /*
-    Fill this part (setting sliderRep properties)
-    */
     sliderRepZ->SetRenderer(ren1);
     sliderRepZ->GetPoint1Coordinate()->SetValue(0.05, 0.1);
     sliderRepZ->GetPoint1Coordinate()->SetCoordinateSystemToNormalizedViewport();
     sliderRepZ->GetPoint2Coordinate()->SetValue(0.3, 0.1);
     sliderRepZ->GetPoint2Coordinate()->SetCoordinateSystemToNormalizedViewport();
-
 
     sliderRepZ->SetTubeWidth(tubeWidth);
     sliderRepZ->SetSliderLength(sliderLength);
@@ -385,15 +305,11 @@ int main (int argc, char *argv[])
     sliderWidgetZ->EnabledOn();
 
     vtkSmartPointer<SliderCallbackZ> callbackZ = vtkSmartPointer<SliderCallbackZ>::New();
-    callbackZ->plane = planeZ;
+    callbackZ->source = clipperZ;
     sliderWidgetX->AddObserver(vtkCommand::InteractionEvent,callbackZ);
-
 
     ren1->AddActor(isoActor);
     ren1->AddActor2D(scalarBar);
-    ren1->AddActor(clipActorX);
-    ren1->AddActor(clipActorY);
-    ren1->AddActor(clipActorZ);
     ren1->ResetCamera();
     ren1->SetBackground(colors->GetColor3d("SlateGray").GetData());
     ren1->ResetCameraClippingRange();
