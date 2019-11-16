@@ -4,5 +4,3 @@ emission_raw = pd.read_csv("emission data.csv")
 population_raw = pd.read_csv("country_population.csv")
 temperature_raw = pd.read_csv("GlobalLandTemperaturesByCountry.csv")
 lat_long = pd.read_csv("worldcitiespop.csv")
-
-print(lat_long)
