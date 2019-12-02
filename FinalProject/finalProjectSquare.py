@@ -152,7 +152,7 @@ image_file = "Capture1.PNG"
 FloatImage(image_file, bottom=87, left=3).add_to(m)
 
 # colormap
-colormap.caption = 'GHG Emission'
+colormap.caption = 'GHG Emission  (log(tonne))'
 m.add_child(colormap)
 m.save('mapSquare.html')
 
