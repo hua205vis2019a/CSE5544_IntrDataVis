@@ -102,7 +102,7 @@ for i in range(1960, 2014):
 
 # height: population 1:15000000
 # width: temperature 1:1
-def createGeoJson():
+def create_geojson():
     features = []
     for i in range(22):
         for j in range(54):
@@ -125,7 +125,7 @@ def createGeoJson():
             }
             features.append(feature)
     return features
-features = createGeoJson()
+features = create_geojson()
 
 # map drawing
 m = folium.Map(location=[41.902782, 12.496365], zoom_start=2.5)
